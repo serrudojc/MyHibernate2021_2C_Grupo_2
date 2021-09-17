@@ -33,7 +33,7 @@ public class MyHibernate
 
 		ResultSet rs;
 		try{
-			rs = getResultSet(query);
+			rs = ejecutarQuerySQL(query);
 			rs.next(); // Para que seleccione la primera fila (La única, en teoría)
 		}catch(Exception e){
 			e.printStackTrace();
@@ -59,7 +59,7 @@ public class MyHibernate
 	}
 
 
-	// Genera la instancia de un objeto según los datos un ResultSet
+	// Genera la instancia de un objeto según los datos del ResultSet
 	private static <T> T instanciarObjeto(ResultSet rs, Class<T> clazz){
 		Field[] fields = clazz.getDeclaredFields();
 		for(Field field: fields) {
@@ -88,7 +88,7 @@ public class MyHibernate
 		return result;
 	}
 
-	// Genera el query SQL de forma dinámica
+	// Genera una query SQL de forma dinámica
 	private static <T> String generarSQLdinamico(Class<T> clazz, int id){
 
 		if(clazz.getAnnotation(Entity.class) == null) {
@@ -118,8 +118,8 @@ public class MyHibernate
 		return "SELECT " + columnas + " FROM " + nombreTablaPrincipal + joins + columnaId + " = " + id;
 	}
 
-	// Establece la conexión con la base de datos y ejecuta el query SQL
-	private static ResultSet getResultSet(String query) throws SQLException {
+	// Establece la conexión con la base de datos y ejecuta la query SQL
+	private static ResultSet ejecutarQuerySQL(String query) throws SQLException {
 		try {
 			Class.forName("org.hsqldb.jdbc.JDBCDriver").newInstance();
 		} catch (Exception e) {
