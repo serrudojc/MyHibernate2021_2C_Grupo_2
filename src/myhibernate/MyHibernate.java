@@ -7,6 +7,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -24,32 +25,30 @@ public class MyHibernate
 		// 		1.2. Considerando relaciones ManyToOne
 		// API: Java Reflection (o introspeccion)
 
-		String query = generarSQLdinamico(clazz,id);
-		System.out.println(query);
+		Optional<Field> opColumnaId = Arrays.stream(clazz.getDeclaredFields()).filter(fld -> fld.getAnnotation(Id.class) != null).findFirst();
+		String columnaId;
+		if(opColumnaId.isPresent()){ // Esto no es necesario (Solo esta para que no salte Warning)
+			columnaId = opColumnaId.get().getAnnotation(Column.class).name();
+		} else {
+			throw new RuntimeException("No se ha encontrado una columna con Annotation: @ID");
+		}
+		String query = generarSQLdinamico(clazz,columnaId + " = " + id);
 
 		// 2. Invocar o ejecutar el SQL generado en (1)
 		// para obtener el ResultSet
 		// API: JDBC (acceso a DB desde Java)
 
-		ResultSet rs;
-		try{
-			rs = ejecutarQuerySQL(query);
-			rs.next(); // Para que seleccione la primera fila (La única, en teoría)
-		}catch(Exception e){
-			e.printStackTrace();
-			throw new RuntimeException("Error al obtener el ResultSet");
-		}
+		ResultSet rs = ejecutarQuerySQL(query);
 
 		// 3. Leer los datos obtenidos en (2), instanciar
 		// el objeto y retornarlo.
 
-		return instanciarObjeto(rs,clazz);
+		return obtenerObjetos(rs,clazz).get(0);
 	}
 
 	public static <T> List<T> findAll(Class<T> clazz)
 	{
-		// PROGRAMAR AQUI
-		return null;
+		return obtenerObjetos(ejecutarQuerySQL(generarSQLdinamico(clazz)),clazz);
 	}
 
 	public static Query createQuery(String hql)
@@ -58,7 +57,19 @@ public class MyHibernate
 		return null;
 	}
 
-
+	// Itera el ResultSet para instanciar los objetos
+	private static <T> List<T> obtenerObjetos(ResultSet rs, Class<T> clazz){
+		List<T> retorno = new ArrayList<>();
+		try{
+			while(rs.next()){
+				retorno.add(instanciarObjeto(rs,clazz));
+			}
+		}catch(Exception e){
+			e.printStackTrace();
+			throw new RuntimeException("Error al obtener resultado del ResultSet");
+		}
+		return retorno;
+	}
 	// Genera la instancia de un objeto según los datos del ResultSet
 	private static <T> T instanciarObjeto(ResultSet rs, Class<T> clazz){
 		Field[] fields = clazz.getDeclaredFields();
@@ -88,8 +99,8 @@ public class MyHibernate
 		return result;
 	}
 
-	// Genera una query SQL de forma dinámica
-	private static <T> String generarSQLdinamico(Class<T> clazz, int id){
+	// Genera una query SQL de forma dinámica con una condición
+	private static <T> String generarSQLdinamico(Class<T> clazz, String condicion){
 
 		if(clazz.getAnnotation(Entity.class) == null) {
 			throw new RuntimeException("La clase no tiene la Annotation @Entity");
@@ -100,34 +111,38 @@ public class MyHibernate
 		String columnas = darFormatoAColumnas(clazz);
 		columnas = columnas.substring(0, columnas.length() - 1); //Solo para sacarle el último ","
 
-		Optional<Field> opColumnaId = Arrays.stream(clazz.getDeclaredFields()).filter(fld -> fld.getAnnotation(Id.class) != null).findFirst();
-		String columnaId;
-		if(opColumnaId.isPresent()){ // Esto no es necesario (Solo esta para que no salte Warning)
-			columnaId = opColumnaId.get().getAnnotation(Column.class).name();
-		} else {
-			throw new RuntimeException("No se ha encontrado una columna con Annotation: @ID");
-		}
-
 		String joins = darFormatoAJoin(clazz);
+		if(!condicion.equals(""))
 		if(joins.equals("")){
 			joins = joins.concat(" WHERE ");
 		} else {
 			joins = joins.concat(" AND ");
 		}
 
-		return "SELECT " + columnas + " FROM " + nombreTablaPrincipal + joins + columnaId + " = " + id;
+		return "SELECT " + columnas + " FROM " + nombreTablaPrincipal + joins + condicion;
+	}
+
+	// Genera una query SQL de forma dinámica
+	private static <T> String generarSQLdinamico(Class<T> clazz){
+		return generarSQLdinamico(clazz, "");
 	}
 
 	// Establece la conexión con la base de datos y ejecuta la query SQL
-	private static ResultSet ejecutarQuerySQL(String query) throws SQLException {
+	private static ResultSet ejecutarQuerySQL(String query){
 		try {
 			Class.forName("org.hsqldb.jdbc.JDBCDriver").newInstance();
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw new RuntimeException("Driver de HSQLDB no encontrado");
 		}
-		Connection c = DriverManager.getConnection("jdbc:hsqldb:hsql://localhost/xdb", "sa", "");
-		return c.createStatement().executeQuery(query);
+		try {
+			Connection c = DriverManager.getConnection("jdbc:hsqldb:hsql://localhost/xdb", "sa", "");
+			System.out.println("+ Query ejecutado -> " + query);
+			return c.createStatement().executeQuery(query);
+		} catch (SQLException e) {
+			e.printStackTrace();
+			throw new RuntimeException("Error en la conexion con la base de datos, no se pudo ejecutar el Query");
+		}
 	}
 
 	// Le da formato a las columnas que se necesitan para instanciar la clases (Para el query SQL)
