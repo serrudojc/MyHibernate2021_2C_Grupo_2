@@ -14,6 +14,7 @@ import java.util.Optional;
 
 public class MyHibernate
 {
+	public static Connection conexion = establecerConexion();
 
 	// Recibe el class del Mapping sobre el que queremos
 	// buscar la fila identificada por id
@@ -25,7 +26,10 @@ public class MyHibernate
 		// 		1.2. Considerando relaciones ManyToOne
 		// API: Java Reflection (o introspeccion)
 
-		Optional<Field> opColumnaId = Arrays.stream(clazz.getDeclaredFields()).filter(fld -> fld.getAnnotation(Id.class) != null).findFirst();
+		Optional<Field> opColumnaId =
+				Arrays.stream(clazz.getDeclaredFields())
+				.filter(fld -> fld.getAnnotation(Id.class) != null)
+				.findFirst();
 		String columnaId;
 		if(opColumnaId.isPresent()){ // Esto no es necesario (Solo esta para que no salte Warning)
 			columnaId = opColumnaId.get().getAnnotation(Column.class).name();
@@ -127,22 +131,34 @@ public class MyHibernate
 		return generarSQLdinamico(clazz, "");
 	}
 
-	// Establece la conexión con la base de datos y ejecuta la query SQL
+	// Ejecuta la query SQL
 	private static ResultSet ejecutarQuerySQL(String query){
+		try {
+			System.out.println("+ Query ejecutado -> " + query);
+			return conexion.createStatement().executeQuery(query);
+		} catch (SQLException e) {
+			e.printStackTrace();
+			throw new RuntimeException("No se pudo ejecutar la query SQL");
+		}
+
+	}
+
+	// Establece la conexión con la base de datos
+	private static Connection establecerConexion(){
 		try {
 			Class.forName("org.hsqldb.jdbc.JDBCDriver").newInstance();
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw new RuntimeException("Driver de HSQLDB no encontrado");
 		}
+		Connection c;
 		try {
-			Connection c = DriverManager.getConnection("jdbc:hsqldb:hsql://localhost/xdb", "sa", "");
-			System.out.println("+ Query ejecutado -> " + query);
-			return c.createStatement().executeQuery(query);
+			c = DriverManager.getConnection("jdbc:hsqldb:hsql://localhost/xdb", "sa", "");
 		} catch (SQLException e) {
 			e.printStackTrace();
-			throw new RuntimeException("Error en la conexion con la base de datos, no se pudo ejecutar el Query");
+			throw new RuntimeException("No se pudo establecer la conexion con la base de datos");
 		}
+		return c;
 	}
 
 	// Le da formato a las columnas que se necesitan para instanciar la clases (Para el query SQL)
