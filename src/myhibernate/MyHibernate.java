@@ -57,7 +57,17 @@ public class MyHibernate
 
 	public static Query createQuery(String hql)
 	{
-		// PROGRAMAR AQUI
+
+		/*
+
+		[SELECT [DISTINCT] property [, ...]]
+   FROM path [[AS] alias] [, ...] [FETCH ALL PROPERTIES]
+   WHERE logicalExpression
+   GROUP BY property [, ...]
+   HAVING logicalExpression
+   ORDER BY property [ASC | DESC] [, ...]
+
+		*/
 		return null;
 	}
 
@@ -145,12 +155,6 @@ public class MyHibernate
 
 	// Establece la conexión con la base de datos
 	private static Connection establecerConexion(){
-		try {
-			Class.forName("org.hsqldb.jdbc.JDBCDriver").newInstance();
-		} catch (Exception e) {
-			e.printStackTrace();
-			throw new RuntimeException("Driver de HSQLDB no encontrado");
-		}
 		Connection c;
 		try {
 			c = DriverManager.getConnection("jdbc:hsqldb:hsql://localhost/xdb", "sa", "");
