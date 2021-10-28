@@ -55,24 +55,39 @@ public class MyHibernate
 		return obtenerObjetos(ejecutarQuerySQL(generarSQLdinamico(clazz)),clazz);
 	}
 
-	public static Query createQuery(String hql)
-	{
+	public static <T> Query createQuery(String hql) { //Solo FROM y WHERE
+		String path;
+		String expresiones;
+		if(hql.startsWith("FROM")){
+			if(hql.contains("WHERE")){
+				path = hql.subSequence(5,hql.indexOf("WHERE")).toString();
+				expresiones = hql.subSequence(hql.indexOf("WHERE") + 5,hql.length()).toString();
+			} else {
+				path = hql.subSequence(5,hql.length()).toString();
+				expresiones = null;
+			}
+		} else {
+			throw new RuntimeException("El HQL " + hql + " no contiene el FROM");
+		}
 
-		/*
+		String[] pathArr = path.split(" ");
+		String sql;
+		Class<T> clazz;
+		try {
+			clazz = (Class<T>) Class.forName("myhibernate.demo." + pathArr[0]);
+			if(expresiones != null && pathArr.length > 1){
+				expresiones = expresiones.replaceAll("\\s" + pathArr[1] + ".","");
+			}
+			sql = generarSQLdinamico(clazz, expresiones);
+		} catch(ClassNotFoundException e) {
+			throw new RuntimeException("No se pudo obtener la clase " + pathArr[0]);
+		}
 
-		[SELECT [DISTINCT] property [, ...]]
-   FROM path [[AS] alias] [, ...] [FETCH ALL PROPERTIES]
-   WHERE logicalExpression
-   GROUP BY property [, ...]
-   HAVING logicalExpression
-   ORDER BY property [ASC | DESC] [, ...]
-
-		*/
-		return null;
+		return new Query(sql,clazz);
 	}
 
 	// Itera el ResultSet para instanciar los objetos
-	private static <T> List<T> obtenerObjetos(ResultSet rs, Class<T> clazz){
+	public static <T> List<T> obtenerObjetos(ResultSet rs, Class<T> clazz){
 		List<T> retorno = new ArrayList<>();
 		try{
 			while(rs.next()){
@@ -114,7 +129,9 @@ public class MyHibernate
 	}
 
 	// Genera una query SQL de forma dinámica con una condición
-	private static <T> String generarSQLdinamico(Class<T> clazz, String condicion){
+	public static <T> String generarSQLdinamico(Class<T> clazz, String condicion){
+
+		if(condicion==null) return generarSQLdinamico(clazz);
 
 		if(clazz.getAnnotation(Entity.class) == null) {
 			throw new RuntimeException("La clase no tiene la Annotation @Entity");
@@ -126,7 +143,8 @@ public class MyHibernate
 		columnas = columnas.substring(0, columnas.length() - 1); //Solo para sacarle el último ","
 
 		String joins = darFormatoAJoin(clazz);
-		if(!condicion.equals(""))
+
+		if(!condicion.isEmpty())
 		if(joins.equals("")){
 			joins = joins.concat(" WHERE ");
 		} else {
@@ -142,7 +160,7 @@ public class MyHibernate
 	}
 
 	// Ejecuta la query SQL
-	private static ResultSet ejecutarQuerySQL(String query){
+	public static ResultSet ejecutarQuerySQL(String query){
 		try {
 			System.out.println("+ Query ejecutado -> " + query);
 			return conexion.createStatement().executeQuery(query);

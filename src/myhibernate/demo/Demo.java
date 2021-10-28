@@ -20,7 +20,6 @@ public class Demo
          System.out.println(px.getDescripcion()+", "+px.getProveedor().getEmpresa());
       }
 
-      /*
       // tercer caso: HQL
       String hql="";
       hql+="FROM Producto p ";
@@ -32,6 +31,5 @@ public class Demo
       {
          System.out.println(px.getDescripcion()+", "+px.getProveedor().getEmpresa());         
       }
-      */
    }
 }
